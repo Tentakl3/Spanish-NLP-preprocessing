@@ -10,7 +10,6 @@ class Prepro:
         self.file_stopwords = file_stopwords
         self.file_out = file_out
         self.tokens = []
-        self.clean_text = ""
         self.vocabulary = []
     
     def main(self):
@@ -20,7 +19,7 @@ class Prepro:
         f.close()
         text_string = text_string.lower()
         self.normalize(text_string)
-        return [self.tokens, self.clean_text, self.vocabulary]
+        return [self.tokens, self.vocabulary]
     
     def normalize(self, text_string):
         """Normalize the lxml text from Corpus."""
@@ -66,11 +65,9 @@ class Prepro:
         """Lemmatize the list of tokens"""
         nlp = spacy.load("es_core_news_sm")
         doc = nlp(" ".join(tokens))
-        lemmatized_tokens = [token.lemma_ for token in doc]
+        lemmatized_tokens = [token.lemma_ for token in doc if " " not in token.lemma_]
         self.tokens = lemmatized_tokens
-        self.clean_text = " ".join(lemmatized_tokens)
-        self.vocabulary = list(set(self.tokens))
-
+        self.vocabulary = sorted(list(set(self.tokens)))
     """
     def pos_tag(self, lemmatized_tokens):
         nlp = spacy.load("es_core_news_sm")
@@ -81,6 +78,7 @@ class Prepro:
 
 if __name__ == "__main__":
     prepro = Prepro("Corpus/e990519_mod.htm", "Corpus/stopwords.txt", "vocabulary")
-    r = prepro.main()
-    vector = Vector(r[0], r[1], r[2])
-    vector.check_context()
+    res = prepro.main()
+    vector = Vector(res[0], res[1])
+    #vector.context()
+    vector.term_document()
