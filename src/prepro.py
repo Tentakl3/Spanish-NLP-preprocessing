@@ -1,4 +1,3 @@
-from vector import Vector
 from bs4 import BeautifulSoup
 import spacy
 import nltk
@@ -76,9 +75,3 @@ class Prepro:
         print(pos_tokens[:100])
     """
 
-if __name__ == "__main__":
-    prepro = Prepro("Corpus/e990519_mod.htm", "Corpus/stopwords.txt", "vocabulary")
-    res = prepro.main()
-    vector = Vector(res[0], res[1])
-    #vector.context()
-    vector.term_document()

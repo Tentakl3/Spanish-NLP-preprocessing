@@ -1,6 +1,9 @@
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from prepro import Prepro
 import pickle as pk
 import pandas as pd
-from sklearn.feature_extraction.text import CountVectorizer
+import numpy as np
 
 
 class Vector:
@@ -9,6 +12,8 @@ class Vector:
         self.text = text
         self.vocabulary = vocabulary
         self.contexts = {}
+        self.col = []
+        self.df = pd.DataFrame()
 
     def check_context(self):
         contextfile = open('contextPickle', 'rb')    
@@ -34,21 +39,40 @@ class Vector:
                         pass
             self.contexts[word] = context
 
-        contextfile = open('Corpus/contextPickle', 'ab')
-        pk.dump(self.contexts, contextfile)
-        contextfile.close()
+        with open('Corpus/contextPickle', 'wb') as contextfile:
+            pk.dump(self.contexts, contextfile)
 
     def term_document(self):
-        contextfile = open('Corpus/contextPickle', 'rb')    
-        self.contexts = pk.load(contextfile)
-        contextfile.close()
+        with open('Corpus/contextPickle', 'rb') as contextfile:    
+            self.contexts = pk.load(contextfile)
 
         contexts_list = self.contexts.values()
 
-        #docs = ['why hello there', 'omg hello pony', 'she went there? omg']
         contexts_strings = [' '.join(x) for x in contexts_list]
-        #print(contexts_strings)
 
-        vec = CountVectorizer(token_pattern='(?u)\\b\\w+\\b')
+        vec = CountVectorizer()
         X = vec.fit_transform(contexts_strings)
-        df = pd.DataFrame(X.toarray(), columns=vec.get_feature_names_out())
+        self.col = vec.get_feature_names_out()
+        self.df = pd.DataFrame(X.todense(), columns = self.col)
+        print(self.df)
+
+    def dot_product(self):
+        results = {}
+        for v1 in self.col[:10]:
+            results[v1] = {}
+            for v2 in self.col[:10]:
+                results[v1][v2] = np.dot(self.df[v1], self.df[v2])
+                
+        return pd.DataFrame(results)
+
+    def cos_similarity(self):
+        return pd.DataFrame(cosine_similarity(self.df, self.df))
+
+if __name__ == "__main__":
+    prepro = Prepro("Corpus/e990519_mod.htm", "Corpus/stopwords.txt", "vocabulary")
+    res = prepro.main()
+    vector = Vector(res[0], res[1])
+    #vector.context()
+    vector.term_document()
+    print(vector.dot_product())
+    print(vector.cos_similarity())
