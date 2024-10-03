@@ -1,3 +1,5 @@
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from prepro import Prepro
@@ -8,23 +10,23 @@ import numpy as np
 
 class Vector:
     """Class to represent the vectorization of text"""
-    def __init__(self, text, vocabulary):
+    def __init__(self, text, vocabulary, word):
         self.text = text
         self.vocabulary = vocabulary
-        self.contexts = {}
-        self.col = []
-        self.df = pd.DataFrame()
+        self.word = word
 
-    def check_context(self):
-        contextfile = open('contextPickle', 'rb')    
-        contextdb = pk.load(contextfile)
-        for keys in contextdb:
-            print(keys, '=>', contextdb[keys])
-        contextfile.close()
+    def main(self):
+        contexts = self.context()
+        term_document_matrix = self.term_document(contexts)
+        tdmn = self.term_document_normalize(term_document_matrix)
+        self.cos_similarity(tdmn)
+        self.dot_similarity(tdmn)
+        
 
     def context(self):
         """collect contexts for each word of the vocabulary"""
-        window=8
+        contexts = {}
+        window = 8
         for word in self.vocabulary:
             context = []
             for i in range(len(self.text)):
@@ -32,47 +34,65 @@ class Vector:
                     for j in range(i-int(window/2), i): #left context
                         if j >= 0: 
                             context.append(self.text[j])
-                    try:
-                        for j in range(i+1, i+(int(window/2)+1)): #right context
+                    for j in range(i+1, i+(int(window/2)+1)): #right context
+                        if j < len(self.text):
                             context.append(self.text[j])
-                    except IndexError:
-                        pass
-            self.contexts[word] = context
+
+            contexts[word] = context
 
         with open('Corpus/contextPickle', 'wb') as contextfile:
-            pk.dump(self.contexts, contextfile)
+            pk.dump(contexts, contextfile)
 
-    def term_document(self):
-        with open('Corpus/contextPickle', 'rb') as contextfile:    
-            self.contexts = pk.load(contextfile)
-
-        contexts_list = self.contexts.values()
-
+        return contexts
+    
+    def term_document(self, contexts):
+        contexts_list = contexts.values()
         contexts_strings = [' '.join(x) for x in contexts_list]
-
-        vec = CountVectorizer()
+        vec = CountVectorizer(token_pattern='(?u)\\b\\w+\\b')
         X = vec.fit_transform(contexts_strings)
-        self.col = vec.get_feature_names_out()
-        self.df = pd.DataFrame(X.todense(), columns = self.col)
-        print(self.df)
+        vocab = vec.get_feature_names_out()
+        term_document_matrix = pd.DataFrame(X.toarray(), columns=vocab, index=vocab)
+        self.vocabulary = vocab
+        return term_document_matrix
+    
+    def term_document_normalize(self, term_document_matrix):
+        col_sums = term_document_matrix.sum(axis=0)
+        tdmn = term_document_matrix.div(col_sums, axis=1)
+        tdmn.to_csv("Corpus/term_document_matrix.csv", header=True, index=True, encoding="utf-8")
+        return tdmn
+    
+    def get_sorted_keys_by_values(self, df, col_name):
+        sorted_df = df.sort_values(by=col_name, ascending=True)
+        sorted_keys = sorted_df.index.tolist()
+        return sorted_keys
+    
+    def cos_similarity(self, tdmn):
+        vec1 = np.array(tdmn[self.word])
+        norm_vec1 = np.linalg.norm(vec1)
+        res = {}
+        for v in self.vocabulary:
+            vec2 = np.array(tdmn[v])
+            norm_vec2 = np.linalg.norm(vec2)
+            res[v] = np.dot(vec1, vec2) / (norm_vec1 * norm_vec2)
+        
+        res_series = pd.Series(res)
+        sorted_voc = res_series.sort_values(ascending=False)
 
-    def dot_product(self):
-        results = {}
-        for v1 in self.col[:10]:
-            results[v1] = {}
-            for v2 in self.col[:10]:
-                results[v1][v2] = np.dot(self.df[v1], self.df[v2])
-                
-        return pd.DataFrame(results)
+        with open(f'Corpus/{self.word}_cos.txt', 'w', encoding="utf-8") as file:
+            for voc, similarity in sorted_voc.items():
+                file.write(f"{voc} : {similarity}\n")
 
-    def cos_similarity(self):
-        return pd.DataFrame(cosine_similarity(self.df, self.df))
+    def dot_similarity(self, tdmn):
+        vec1 = np.array(tdmn[self.word])
+        res = tdmn.dot(vec1)
+        sorted_voc = res.sort_values(ascending=False)
+        
+        with open(f'Corpus/{self.word}_dot.txt', 'w', encoding = "utf-8") as file:
+            for voc, similarity in sorted_voc.items():
+                file.write(f"{voc} : {similarity}\n")
 
 if __name__ == "__main__":
     prepro = Prepro("Corpus/e990519_mod.htm", "Corpus/stopwords.txt", "vocabulary")
-    res = prepro.main()
-    vector = Vector(res[0], res[1])
-    #vector.context()
-    vector.term_document()
-    print(vector.dot_product())
-    print(vector.cos_similarity())
+    text, vocabuary = prepro.main()
+    vector = Vector(text, vocabuary, "agresividad")
+    vector.main()

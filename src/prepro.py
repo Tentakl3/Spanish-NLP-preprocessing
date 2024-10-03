@@ -12,26 +12,34 @@ class Prepro:
         self.vocabulary = []
     
     def main(self):
-        """Method to read the html archive."""
+        """Main method"""
+        norm_string = self.beautiful_html(self.read_corpus())
+        raw_tokens = self.raw_tokens(norm_string)
+        clean_tokens = self.clean_tokens(raw_tokens)
+        tokens = self.delete_stopwords(clean_tokens)
+        self.lemmatize(tokens)
+        return [self.tokens, self.vocabulary]
+
+
+    def read_corpus(self):
+        """Read Corpus and lower case letters"""
         f = open(self.file_name, encoding="utf-8")
         text_string = f.read()
         f.close()
         text_string = text_string.lower()
-        self.normalize(text_string)
-        return [self.tokens, self.vocabulary]
+        return text_string
     
-    def normalize(self, text_string):
+    def beautiful_html(self, text_string):
         """Normalize the lxml text from Corpus."""
         soup = BeautifulSoup(text_string, "html.parser")
         norm_string = soup.get_text()
-        self.raw_tokens(norm_string)
+        return norm_string
 
     def raw_tokens(self, norm_string):
         """Reciebes prepoces text and return raw tokens."""
         raw_tokens=nltk.Text(nltk.word_tokenize(norm_string))
-        self.clean_tokens(raw_tokens)
+        return raw_tokens
         
-
     def clean_tokens(self, raw_tokens):
         """Receives a list of raw tokens and returns tokens of letters only."""
         clean_tokens=[]
@@ -43,8 +51,7 @@ class Prepro:
             letter_token=''.join(t)
             if letter_token !='':
                 clean_tokens.append(letter_token)
-
-        self.delete_stopwords(clean_tokens)
+        return clean_tokens
 
     def delete_stopwords(self, clean_tokens):
         """Receives a list of tokens and eliminates stopwords using a file of stopwords."""
@@ -58,7 +65,7 @@ class Prepro:
             if tok not in stopwords:
                 tokens_without_stopwords.append(tok)
         
-        self.lemmatize(tokens_without_stopwords)
+        return tokens_without_stopwords
 
     def lemmatize(self, tokens):
         """Lemmatize the list of tokens"""
@@ -67,11 +74,3 @@ class Prepro:
         lemmatized_tokens = [token.lemma_ for token in doc if " " not in token.lemma_]
         self.tokens = lemmatized_tokens
         self.vocabulary = sorted(list(set(self.tokens)))
-    """
-    def pos_tag(self, lemmatized_tokens):
-        nlp = spacy.load("es_core_news_sm")
-        doc = nlp(" ".join(lemmatized_tokens))
-        pos_tokens = [[token.text, token.pos_] for token in doc]
-        print(pos_tokens[:100])
-    """
-
