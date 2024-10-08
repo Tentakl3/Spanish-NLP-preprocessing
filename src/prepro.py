@@ -17,9 +17,11 @@ class Prepro:
         raw_tokens = self.raw_tokens(norm_string)
         clean_tokens = self.clean_tokens(raw_tokens)
         tokens = self.delete_stopwords(clean_tokens)
-        self.lemmatize(tokens)
-        return [self.tokens, self.vocabulary]
+        lemmatize_tokens = self.lemmatize(tokens)
 
+        self.tokens = self.delete_stopwords(lemmatize_tokens)
+        self.vocabulary = sorted(list(set(self.tokens)))
+        return [self.tokens, self.vocabulary]
 
     def read_corpus(self):
         """Read Corpus and lower case letters"""
@@ -72,5 +74,4 @@ class Prepro:
         nlp = spacy.load("es_core_news_sm")
         doc = nlp(" ".join(tokens))
         lemmatized_tokens = [token.lemma_ for token in doc if " " not in token.lemma_]
-        self.tokens = lemmatized_tokens
-        self.vocabulary = sorted(list(set(self.tokens)))
+        return lemmatized_tokens
