@@ -1,12 +1,11 @@
-import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+from normalization import Normalization
 from prepro import Prepro
 import pickle as pk
 import pandas as pd
 import numpy as np
-
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 class Vector:
     """Class to represent the vectorization of text"""
@@ -16,12 +15,14 @@ class Vector:
         self.word = word
 
     def main(self):
-        contexts = self.context()
-        term_document_matrix = self.term_document(contexts)
-        tdmn = self.term_document_normalize(term_document_matrix)
+        #contexts = self.context()
+        term_document_matrix = self.term_document()
+        #norm = Normalization(term_document_matrix, self.vocabulary)
+        #tdmn = norm.term_document_normalize()
         #self.cos_similarity(tdmn)
         #self.dot_similarity(tdmn)
-        self.euclidean_similarity(tdmn)
+        #self.euclidean_similarity(tdmn)
+        self.bm25_similarity(term_document_matrix)
         
 
     def context(self):
@@ -30,7 +31,7 @@ class Vector:
         window = 8
         for word in self.vocabulary:
             context = []
-            for i in range(len(self.text)):
+            for i in enumerate(self.text):
                 if self.text[i] == word:
                     for j in range(i-int(window/2), i): #left context
                         if j >= 0: 
@@ -46,8 +47,9 @@ class Vector:
 
         return contexts
     
-    def term_document(self, contexts):
+    def term_document(self):
         """Generate de term-document matrix"""
+        contexts = pd.read_pickle('Corpus/contextPickle')
         contexts_list = contexts.values()
         contexts_strings = [' '.join(x) for x in contexts_list]
         vec = CountVectorizer(token_pattern='(?u)\\b\\w+\\b')
@@ -55,17 +57,19 @@ class Vector:
         vocab = vec.get_feature_names_out()
         term_document_matrix = pd.DataFrame(X.toarray(), columns=vocab, index=vocab)
         self.vocabulary = vocab
+
         return term_document_matrix
+
+    def idf(self, word, term_document_matrix):
+        N_q = (term_document_matrix.loc[word] > 0).sum()  # count how many documents contain term w
+        n = term_document_matrix.shape[1]  # total number of documents
+        idf_value = np.log(((n - N_q + 0.5) / (N_q + 0.5)) + 1)
+        
+        return idf_value
     
-    def term_document_normalize(self, term_document_matrix):
-        """Normalize the term document matrix"""
-        col_sums = term_document_matrix.sum(axis=0)
-        tdmn = term_document_matrix.div(col_sums, axis=1)
-        tdmn.to_csv("Corpus/term_document_matrix.csv", header=True, index=True, encoding="utf-8")
-        return tdmn
-    
-    def cos_similarity(self, tdmn):
+    def cos_similarity(self):
         """Calculation of cosine similarity between vectors"""
+        tdmn = pd.read_pickle('Corpus/tdmbm25Pickle')
         vec1 = np.array(tdmn[self.word])
         norm_vec1 = np.linalg.norm(vec1)
         res = {}
@@ -81,8 +85,9 @@ class Vector:
             for voc, similarity in sorted_voc.items():
                 file.write(f"{voc} : {similarity}\n")
 
-    def dot_similarity(self, tdmn):
-        """Calculation of dot product similarity betwen vectors"""
+    def dot_similarity(self):
+        """Calculation of dot product similarity between vectors"""
+        tdmn = pd.read_pickle('Corpus/tdmbm25Pickle')
         vec1 = np.array(tdmn[self.word])
         vec1 = np.linalg.norm(vec1)
         res = tdmn.dot(vec1)
@@ -92,8 +97,9 @@ class Vector:
             for voc, similarity in sorted_voc.items():
                 file.write(f"{voc} : {similarity}\n")
 
-    def euclidean_similarity(self, tdmn):
+    def euclidean_similarity(self):
         """Calculation of the euclidean distance between vectors"""
+        tdmn = pd.read_pickle('Corpus/tdmbm25Pickle')
         vec1 = np.array(tdmn[self.word])
         res = {}
         for v in self.vocabulary:
@@ -107,8 +113,36 @@ class Vector:
             for voc, similarity in sorted_voc.items():
                 file.write(f"{voc} : {similarity}\n")
 
+    def bm25_similarity(self, term_document_matrix):
+        """Calculation of the bm25 similarity betwen vectors"""
+        tdmbm25 = pd.read_pickle('Corpus/tdmbm25Pickle')
+        
+        idf_cache = {}
+        for word in self.vocabulary:
+            idf_cache[word] = self.idf(word, term_document_matrix)
+        
+        res = {}
+        tdmbm25_np = tdmbm25.to_numpy()
+        word_index = self.vocabulary.tolist().index(self.word)
+        
+        for v1 in self.vocabulary:
+            v1_idx = self.vocabulary.tolist().index(v1)
+            
+            idf_vector = np.array([idf_cache[v2] for v2 in self.vocabulary])
+            bm25_word_vector = tdmbm25_np[word_index]
+            bm25_v1_vector = tdmbm25_np[v1_idx]
+            
+            res[v1] = np.sum(idf_vector * bm25_word_vector * bm25_v1_vector)
+
+        res_series = pd.Series(res)
+        sorted_voc = res_series.sort_values(ascending=False)
+
+        with open(f'Corpus/{self.word}_bm25.txt', 'w', encoding="utf-8") as file:
+            for voc, similarity in sorted_voc.items():
+                file.write(f"{voc} : {similarity}\n")
+
 if __name__ == "__main__":
     prepro = Prepro("Corpus/e990519_mod.htm", "Corpus/stopwords.txt", "vocabulary")
     text, vocabuary = prepro.main()
-    vector = Vector(text, vocabuary, "organización")
+    vector = Vector(text, vocabuary, "agresividad")
     vector.main()
