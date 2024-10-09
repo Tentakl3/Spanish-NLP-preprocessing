@@ -15,14 +15,14 @@ class Vector:
         self.word = word
 
     def main(self):
-        #contexts = self.context()
         term_document_matrix = self.term_document()
-        #norm = Normalization(term_document_matrix, self.vocabulary)
-        #tdmn = norm.term_document_normalize()
-        #self.cos_similarity(tdmn)
-        #self.dot_similarity(tdmn)
-        #self.euclidean_similarity(tdmn)
-        self.bm25_similarity(term_document_matrix)
+        norm = Normalization(term_document_matrix, self.vocabulary)
+        #norm.term_document_normalize()
+        #norm.term_document_bm25()
+        #self.cos_similarity()
+        self.dot_similarity()
+        #self.euclidean_similarity()
+        #self.bm25_similarity(term_document_matrix)
         
 
     def context(self):
@@ -69,7 +69,7 @@ class Vector:
     
     def cos_similarity(self):
         """Calculation of cosine similarity between vectors"""
-        tdmn = pd.read_pickle('Corpus/tdmbm25Pickle')
+        tdmn = pd.read_pickle('Corpus/tdmnPickle')
         vec1 = np.array(tdmn[self.word])
         norm_vec1 = np.linalg.norm(vec1)
         res = {}
@@ -87,19 +87,19 @@ class Vector:
 
     def dot_similarity(self):
         """Calculation of dot product similarity between vectors"""
-        tdmn = pd.read_pickle('Corpus/tdmbm25Pickle')
+        tdmn = pd.read_pickle('Corpus/tdmnPickle')
         vec1 = np.array(tdmn[self.word])
-        vec1 = np.linalg.norm(vec1)
-        res = tdmn.dot(vec1)
+        vec1_n = np.linalg.norm(vec1)
+        res = tdmn.dot(vec1/vec1_n)
         sorted_voc = res.sort_values(ascending=False)
         
         with open(f'Corpus/{self.word}_dot.txt', 'w', encoding = "utf-8") as file:
             for voc, similarity in sorted_voc.items():
                 file.write(f"{voc} : {similarity}\n")
-
+        
     def euclidean_similarity(self):
         """Calculation of the euclidean distance between vectors"""
-        tdmn = pd.read_pickle('Corpus/tdmbm25Pickle')
+        tdmn = pd.read_pickle('Corpus/tdmnPickle')
         vec1 = np.array(tdmn[self.word])
         res = {}
         for v in self.vocabulary:
@@ -144,5 +144,5 @@ class Vector:
 if __name__ == "__main__":
     prepro = Prepro("Corpus/e990519_mod.htm", "Corpus/stopwords.txt", "vocabulary")
     text, vocabuary = prepro.main()
-    vector = Vector(text, vocabuary, "agresividad")
+    vector = Vector(text, vocabuary, "organización")
     vector.main()

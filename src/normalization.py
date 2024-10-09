@@ -15,7 +15,7 @@ class Normalization:
         col_sums = self.term_document_matrix.sum(axis=0)
         tdmn = self.term_document_matrix.div(col_sums, axis=1)
 
-        with open('Corpus/tdmbm25Pickle', 'wb') as tdmnfile:
+        with open('Corpus/tdmnPickle', 'wb') as tdmnfile:
             pk.dump(tdmn, tdmnfile)
 
     def term_document_bm25(self):
@@ -30,8 +30,6 @@ class Normalization:
                 
         tdmbm25 = pd.DataFrame.from_dict(m, dtype=float)
         tdmbm25.index = self.vocabulary
-
-        tdmbm25.to_csv('Corpus/tdmbm25Pickle.csv', index = True)
 
         with open('Corpus/tdmbm25Pickle', 'wb') as tdmbm25file:
             pk.dump(tdmbm25, tdmbm25file)
